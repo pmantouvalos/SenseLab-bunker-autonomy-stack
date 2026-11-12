@@ -6,7 +6,7 @@
 
 ## Project Overview
 
-This repository is currently under development as part of an academic research project at the **SenseLab Space Informatics laboratory, directed by Prof. Panagiotis Partsinevelos)**. 
+This repository is currently under development as part of an academic research project at **SenseLab Space Informatics laboratory, directed by Prof. Panagiotis Partsinevelos)**. 
 
 The goal of this project is to build a from-scratch, modular ROS 2 autonomy stack for the **AgileX Bunker Mini 2.0** tracked UGV. The final system aims to achieve autonomous exploration, resilient obstacle avoidance, and 3D artifact localization in GPS-denied, completely dark subterranean environments.
 
