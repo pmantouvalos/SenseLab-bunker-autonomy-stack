@@ -6,7 +6,7 @@
 
 ## Project Overview
 
-This repository is currently under development as part of an academic laboratory project at the Technical University of Crete (SenseLab). 
+This repository is currently under development as part of an academic research project at the **Technical University of Crete (SenseLab, directed by Prof. Panagiotis Partsinevelos)**. 
 
 The goal of this project is to build a from-scratch, modular ROS 2 autonomy stack for the **AgileX Bunker Mini 2.0** tracked UGV. The final system aims to achieve autonomous exploration, resilient obstacle avoidance, and 3D artifact localization in GPS-denied, completely dark subterranean environments.
 
@@ -30,5 +30,6 @@ The upcoming implementations in this repository are based on the following resea
 * **Artifact Detection:** Scherer, Sebastian, et al. *"Resilient and Modular Subterranean Exploration..."* Field Robotics, 2022.
 
 ---
-**Author:** Panagiotis Mantouvalos  
-**Institution:** Technical University of Crete (TUC) - SenseLab, ECE Dept.
+**Author:** Panagiotis Mantouvalos | *Undergraduate Research Assistant in Robotics*  
+**Laboratory:** SenseLab (Director: Prof. Panagiotis Partsinevelos)  
+**Institution:** Technical University of Crete (TUC), School of Electrical and Computer Engineering (ECE)
