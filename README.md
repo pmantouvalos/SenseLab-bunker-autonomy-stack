@@ -31,5 +31,5 @@ The upcoming implementations in this repository are based on the following resea
 
 ---
 **Author:** Panagiotis Mantouvalos | *Undergraduate Research Assistant in Robotics*  
-**Laboratory:** SenseLab (Director: Prof. Panagiotis Partsinevelos)  
-**Institution:** Technical University of Crete (TUC), School of Electrical and Computer Engineering (ECE)
+**Laboratory:** SenseLab Space Informatics (Director: Prof. Panagiotis Partsinevelos)  
+**Institution:** Technical University of Crete (TUC)
