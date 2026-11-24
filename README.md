@@ -11,7 +11,9 @@ The stack currently runs end to end **in simulation** (Gazebo Harmonic, SubT-sty
 
 ## Demo
 
-▶ **[Watch the simulation demo (video, 54 s)](docs/media/demo.mp4)**: the rover follows the lane, detects rocks and drives around them in AUTO mode, while the dashboard shows the camera views, the lane mask and telemetry.
+<p align="center"><img src="docs/media/demo.gif" alt="Simulation demo: the rover follows the lane and drives around a rock in AUTO mode" width="720"></p>
+
+▶ [Full video (54 s)](docs/media/demo.mp4): the rover follows the lane, detects rocks and drives around them in AUTO mode, while the dashboard shows the camera views, the lane mask and telemetry.
 
 ## What it does
 
