@@ -9,6 +9,10 @@ A modular ROS 2 autonomy stack for the **AgileX Bunker Mini 2.0** tracked UGV, d
 
 The stack currently runs end to end **in simulation** (Gazebo Harmonic, SubT-style cave world with a simulated OAK-D Lite camera). Deployment on the physical robot is the next milestone.
 
+## Demo
+
+▶ **[Watch the simulation demo (video, 54 s)](docs/media/demo.mp4)**: the rover follows the lane, detects rocks and drives around them in AUTO mode, while the dashboard shows the camera views, the lane mask and telemetry.
+
 ## What it does
 
 1. **Perceives the lane.** A YOLOv8n-seg network segments the two lane lines. Mask pixels are projected onto the ground plane using the camera pose (TF) to obtain the lane centre in metres.
