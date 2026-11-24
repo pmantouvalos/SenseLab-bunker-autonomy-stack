@@ -1,0 +1,58 @@
+Panels:
+  - Class: rviz_common/Displays
+    Name: Displays
+Visualization Manager:
+  Class: ""
+  Displays:
+    - Class: rviz_default_plugins/Grid
+      Name: Grid
+      Enabled: true
+      Reference Frame: <Fixed Frame>
+      Cell Size: 1
+      Plane Cell Count: 20
+      Color: 80; 80; 80
+    - Class: rviz_default_plugins/RobotModel
+      Name: Bunker Mini
+      Enabled: true
+      Description Source: Topic
+      Description Topic:
+        Value: /robot_description
+    - Class: rviz_default_plugins/PointCloud2
+      Name: OAK-D Lite depth
+      Enabled: true
+      Topic:
+        Value: /oak/points
+      Style: Points
+      Size (Pixels): 2
+      Color Transformer: RGB8
+      Decay Time: 0
+    - Class: rviz_default_plugins/MarkerArray
+      Name: Artifacts
+      Enabled: true
+      Topic:
+        Value: /artifacts/markers
+    - Class: rviz_default_plugins/Image
+      Name: YOLO detections
+      Enabled: true
+      Topic:
+        Value: /oak/nn/detections_image
+  Global Options:
+    Fixed Frame: odom
+    Background Color: 20; 22; 26
+    Frame Rate: 30
+  Tools:
+    - Class: rviz_default_plugins/MoveCamera
+  Views:
+    Current:
+      Class: rviz_default_plugins/Orbit
+      Distance: 9
+      Focal Point:
+        X: 3
+        Y: 0
+        Z: 0
+      Pitch: 0.6
+      Yaw: 3.4
+      Target Frame: <Fixed Frame>
+Window Geometry:
+  Width: 1600
+  Height: 900

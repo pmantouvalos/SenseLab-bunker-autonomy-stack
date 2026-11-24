@@ -1,0 +1,400 @@
+<?xml version="1.0"?>
+<!--
+  AgileX BUNKER MINI 2.0 - simulation model (URDF/xacro) for Gazebo Harmonic.
+
+  Source: "BUNKER MINI 2.0 User Manual" V2.0.1 (2023.09), ch. 1.2 and 6.1
+    Overall size (L x W x H) : 690 x 570 x 335 mm          (table + drawing)
+    Curb weight              : 56 kg                        (table)
+    Track width              : 100 mm                       (table)
+    Chassis height           : 80 mm  = ground clearance    (table + front-view drawing)
+    Max obstacle crossing    : 120 mm                       (table)
+    Max gradeability         : 30 deg                       (table)
+    Max speed                : 1.0 m/s  (table prints "km/h", a typo:
+                               the CAN protocol accepts up to 1.3 m/s)
+    Max angular velocity     : 2.0 rad/s                    (CAN protocol, +/-2000 x 0.001 rad/s)
+    Steering                 : track differential steering, can turn in place
+    Drive                    : 2 x 250 W DC brushed motors, 19.71:1 reduction
+
+  Note: the manual's table also lists "Ground clearance 410 mm", which is
+  impossible for a 335 mm tall robot; the 80 mm chassis height from the table
+  and the drawing is used instead.
+
+  Track modelling:
+    Gazebo has no deformable rubber tracks, so each track is approximated by
+    a row of driven, coaxial wheels along the ground contact (455 mm long,
+    measured from the side-view drawing) plus nose wheels on the front and
+    rear track slopes. Limitation: round wheels cannot hook onto an edge like
+    the track grousers, so the model climbs smaller steps than the real robot
+    (see README / tests in this package's history). All wheels on one side turn
+    at the same speed (skid steering), exactly like a real track.
+    The visuals are meshes extruded from the measured side profile
+    (see scripts/generate_meshes.py).
+
+  Frames:
+    base_footprint : on the ground, under the robot centre (z = 0)
+    base_link      : geometric centre of the 690 x 570 x 335 envelope
+-->
+<robot name="bunker_mini" xmlns:xacro="http://www.ros.org/wiki/xacro">
+
+  <!-- ===================== Dimensions (metres / kg) ===================== -->
+  <xacro:property name="PI"              value="3.14159265359"/>
+
+  <xacro:property name="total_length"    value="0.690"/>
+  <xacro:property name="total_width"     value="0.570"/>
+  <xacro:property name="total_height"    value="0.335"/>
+  <xacro:property name="ground_clear"    value="0.080"/>
+  <xacro:property name="total_mass"      value="56.0"/>
+
+  <!-- Side modules (track + cover) -->
+  <xacro:property name="track_width"     value="0.100"/>
+  <xacro:property name="track_y"         value="${total_width/2 - track_width/2}"/>   <!-- 0.235 -->
+  <xacro:property name="track_sep"       value="${2*track_y}"/>                      <!-- 0.470 -->
+
+  <!-- Ground contact of the track, from the side-view drawing -->
+  <xacro:property name="contact_rear"    value="-0.245"/>
+  <xacro:property name="contact_front"   value="0.210"/>
+
+  <!-- Wheels that stand in for the track.
+       All wheels have the same radius (DiffDrive drives them at one speed).
+       Every wheel lies inside the measured track profile (scripts/generate_meshes.py):
+       - 7 road wheels along the flat ground contact
+       - slope wheels tangent to the front / rear track slopes, close together,
+         so an obstacle edge always meets the (continuous) sloped track,
+         as on the real robot. -->
+  <xacro:property name="wheel_r"         value="0.050"/>
+  <xacro:property name="wheel_mass"      value="0.3"/>
+  <!-- Max torque per wheel (N*m). Estimate: total traction per side ~ 300 N
+       (about mu x half the weight) spread over the ~6 wheels that carry load,
+       times wheel_r. Not in the manual; tune against the real robot. -->
+  <xacro:property name="wheel_max_torque" value="5.0"/>
+
+  <!-- Track slopes.
+       Rear: as measured from the drawing (~56 deg from horizontal).
+       Front: the drawing shows ~60 deg, but a round wheel touching an edge at 60 deg
+       needs a friction coefficient above tan(60) = 1.73 to climb, while Gazebo (DART)
+       uses the smaller coefficient of the two surfaces (<= 1.0 for the cave).
+       The real track climbs 120 mm because its grousers hook onto the edge, which
+       wheels cannot do. So the *collision* slope is lowered to 40 deg, starting a
+       bit further back; this reproduces the manual's 120 mm obstacle height.
+       The visual track (mesh) still follows the drawing. -->
+  <xacro:property name="front_slope_deg"     value="40"/>
+  <xacro:property name="contact_front_coll"  value="0.150"/>
+  <xacro:property name="front_slope_k"   value="${1/tan(radians(front_slope_deg))}"/>
+  <xacro:property name="front_n_x"       value="${sin(radians(front_slope_deg))}"/>
+  <xacro:property name="front_n_z"       value="${cos(radians(front_slope_deg))}"/>
+  <xacro:property name="rear_slope_k"    value="0.667"/>
+  <xacro:property name="rear_n_x"        value="0.832"/>
+  <xacro:property name="rear_n_z"        value="0.555"/>
+
+  <!-- road wheels: first/last are tangent to the slopes -->
+  <xacro:property name="road_first_x"    value="${contact_rear - rear_slope_k*wheel_r*(1-rear_n_z) + wheel_r*rear_n_x}"/>
+  <xacro:property name="road_last_x"     value="${contact_front_coll + wheel_r*(1-front_n_z)*front_slope_k - wheel_r*front_n_x}"/>
+  <xacro:property name="wheel_pitch"     value="${(road_last_x - road_first_x)/6}"/>  <!-- 7 road wheels -->
+
+  <!-- Central hull between the side modules (front-view drawing) -->
+  <xacro:property name="hull_length"     value="0.650"/>
+  <xacro:property name="hull_width"      value="${total_width - 2*track_width}"/>   <!-- 0.370 -->
+  <xacro:property name="hull_top"        value="0.285"/>
+  <xacro:property name="hull_height"     value="${hull_top - ground_clear}"/>       <!-- 0.205 -->
+  <xacro:property name="n_wheels"        value="15"/>     <!-- per side: 7 road + 5 front slope + 3 rear slope -->
+  <xacro:property name="hull_mass"       value="${total_mass - 2*n_wheels*wheel_mass}"/>  <!-- 47.0 -->
+
+  <!-- Top expansion bracket (manual ch. 6.2): 412 x 270 x 16 mm, rails 230 mm apart -->
+  <xacro:property name="rail_length"     value="0.412"/>
+  <xacro:property name="rail_y"          value="0.125"/>
+  <xacro:property name="rail_h"          value="0.016"/>
+
+  <!-- base_link sits at the centre of the overall envelope -->
+  <xacro:property name="base_z"          value="${total_height/2}"/>
+
+  <!-- Friction of the track rubber -->
+  <xacro:property name="track_mu"        value="0.9"/>
+
+  <!-- Speed limits -->
+  <xacro:property name="max_lin_vel"     value="1.0"/>
+  <xacro:property name="max_ang_vel"     value="2.0"/>
+
+  <!-- ============================ Materials ============================= -->
+  <material name="bunker_white"> <color rgba="0.88 0.89 0.90 1.0"/></material>
+  <material name="bunker_dark">  <color rgba="0.20 0.20 0.22 1.0"/></material>
+  <material name="track_rubber"> <color rgba="0.05 0.05 0.05 1.0"/></material>
+  <material name="led_white">    <color rgba="1.00 1.00 0.95 1.0"/></material>
+
+  <!-- ========================= Inertia helpers ========================== -->
+  <xacro:macro name="box_inertia" params="m x y z">
+    <inertia ixx="${m*(y*y+z*z)/12}" ixy="0" ixz="0"
+             iyy="${m*(x*x+z*z)/12}" iyz="0"
+             izz="${m*(x*x+y*y)/12}"/>
+  </xacro:macro>
+
+  <!-- cylinder with its axis along Y (wheel axle) -->
+  <xacro:macro name="wheel_inertia" params="m r h">
+    <inertia ixx="${m*(3*r*r+h*h)/12}" ixy="0" ixz="0"
+             iyy="${m*r*r/2}"          iyz="0"
+             izz="${m*(3*r*r+h*h)/12}"/>
+  </xacro:macro>
+
+  <!-- ============================ Base links ============================ -->
+  <link name="base_footprint"/>
+
+  <joint name="base_footprint_joint" type="fixed">
+    <parent link="base_footprint"/>
+    <child  link="base_link"/>
+    <origin xyz="0 0 ${base_z}" rpy="0 0 0"/>
+  </joint>
+
+  <link name="base_link">
+    <inertial>
+      <!-- most of the mass (battery, motors) sits low in the hull -->
+      <origin xyz="0 0 ${ground_clear + hull_height*0.4 - base_z}" rpy="0 0 0"/>
+      <mass value="${hull_mass}"/>
+      <xacro:box_inertia m="${hull_mass}" x="${total_length}" y="${total_width}" z="${hull_height}"/>
+    </inertial>
+
+    <!-- Hull -->
+    <visual name="hull">
+      <origin xyz="0 0 ${ground_clear + hull_height/2 - base_z}" rpy="0 0 0"/>
+      <geometry><box size="${hull_length} ${hull_width} ${hull_height}"/></geometry>
+      <material name="bunker_white"/>
+    </visual>
+    <!-- Hull collision in two parts: the bottom 70 mm is shorter so that, as on the
+         real robot, the track noses (not the hull) touch a step first. -->
+    <xacro:property name="hull_low_h"   value="0.070"/>
+    <xacro:property name="hull_low_len" value="0.300"/>
+    <collision name="hull_collision_low">
+      <origin xyz="0 0 ${ground_clear + hull_low_h/2 - base_z}" rpy="0 0 0"/>
+      <geometry><box size="${hull_low_len} ${hull_width} ${hull_low_h}"/></geometry>
+    </collision>
+    <collision name="hull_collision_high">
+      <origin xyz="0 0 ${ground_clear + hull_low_h + (hull_height - hull_low_h)/2 - base_z}" rpy="0 0 0"/>
+      <geometry><box size="${hull_length} ${hull_width} ${hull_height - hull_low_h}"/></geometry>
+    </collision>
+
+    <!-- Top expansion bracket rails -->
+    <visual name="rail_left">
+      <origin xyz="0 ${rail_y} ${hull_top + rail_h/2 - base_z}" rpy="0 0 0"/>
+      <geometry><box size="${rail_length} 0.020 ${rail_h}"/></geometry>
+      <material name="bunker_dark"/>
+    </visual>
+    <visual name="rail_right">
+      <origin xyz="0 ${-rail_y} ${hull_top + rail_h/2 - base_z}" rpy="0 0 0"/>
+      <geometry><box size="${rail_length} 0.020 ${rail_h}"/></geometry>
+      <material name="bunker_dark"/>
+    </visual>
+
+    <!-- Front LED light bar -->
+    <visual name="front_led">
+      <origin xyz="${hull_length/2 + 0.003} 0 ${ground_clear + hull_height*0.6 - base_z}" rpy="0 0 0"/>
+      <geometry><box size="0.006 0.240 0.025"/></geometry>
+      <material name="led_white"/>
+    </visual>
+
+    <!-- Side modules: track (black) and side cover (white), meshes from the drawing -->
+    <xacro:macro name="side_module" params="side sign">
+      <visual name="${side}_track">
+        <origin xyz="0 ${sign*track_y} ${-base_z}" rpy="0 0 0"/>
+        <geometry><mesh filename="package://bunker_simulation/meshes/bunker_mini_track.stl"/></geometry>
+        <material name="track_rubber"/>
+      </visual>
+      <visual name="${side}_cover">
+        <origin xyz="0 ${sign*(total_width/2 - 0.004)} ${-base_z}" rpy="0 0 0"/>
+        <geometry><mesh filename="package://bunker_simulation/meshes/bunker_mini_side_cover.stl"/></geometry>
+        <material name="bunker_white"/>
+      </visual>
+      <!-- upper part of the module: so the robot collides with walls/rocks -->
+      <collision name="${side}_fender_collision">
+        <origin xyz="0 ${sign*track_y} ${0.245 - base_z}" rpy="0 0 0"/>
+        <geometry><box size="0.600 ${track_width} 0.170"/></geometry>
+      </collision>
+    </xacro:macro>
+    <xacro:side_module side="left"  sign="1"/>
+    <xacro:side_module side="right" sign="-1"/>
+  </link>
+
+  <!-- ============================== Wheels ============================== -->
+  <!-- wheel macro: invisible, driven wheel that represents part of a track -->
+  <xacro:macro name="track_wheel" params="side idx x y z mu:=${track_mu}">
+    <link name="${side}_wheel_${idx}">
+      <inertial>
+        <mass value="${wheel_mass}"/>
+        <xacro:wheel_inertia m="${wheel_mass}" r="${wheel_r}" h="${track_width}"/>
+      </inertial>
+      <collision>
+        <origin xyz="0 0 0" rpy="${PI/2} 0 0"/>
+        <geometry><cylinder radius="${wheel_r}" length="${track_width}"/></geometry>
+      </collision>
+    </link>
+    <joint name="${side}_wheel_${idx}_joint" type="continuous">
+      <parent link="base_link"/>
+      <child  link="${side}_wheel_${idx}"/>
+      <origin xyz="${x} ${y} ${z - base_z}" rpy="0 0 0"/>
+      <axis xyz="0 1 0"/>
+      <!-- torque limit: without it Gazebo gives the wheels infinite torque -->
+      <limit effort="${wheel_max_torque}" velocity="100"/>
+    </joint>
+    <gazebo reference="${side}_wheel_${idx}">
+      <mu1>${mu}</mu1>
+      <mu2>${mu}</mu2>
+      <kp>1e6</kp>
+      <kd>100</kd>
+      <minDepth>0.001</minDepth>
+    </gazebo>
+  </xacro:macro>
+
+  <!-- wheel tangent to the front slope line at height zt -->
+  <xacro:macro name="front_slope_wheel" params="side y idx zt">
+    <xacro:track_wheel side="${side}" idx="${idx}" y="${y}"
+      x="${contact_front_coll + front_slope_k*zt - wheel_r*front_n_x}"
+      z="${zt + wheel_r*front_n_z}"/>
+  </xacro:macro>
+  <!-- wheel tangent to the rear slope line at height zt -->
+  <xacro:macro name="rear_slope_wheel" params="side y idx zt">
+    <xacro:track_wheel side="${side}" idx="${idx}" y="${y}"
+      x="${contact_rear - rear_slope_k*zt + wheel_r*rear_n_x}"
+      z="${zt + wheel_r*rear_n_z}"/>
+  </xacro:macro>
+
+  <xacro:macro name="track_side" params="side y">
+    <!-- 7 road wheels along the ground contact -->
+    <xacro:track_wheel side="${side}" idx="1" x="${road_first_x + 0*wheel_pitch}" y="${y}" z="${wheel_r}"/>
+    <xacro:track_wheel side="${side}" idx="2" x="${road_first_x + 1*wheel_pitch}" y="${y}" z="${wheel_r}"/>
+    <xacro:track_wheel side="${side}" idx="3" x="${road_first_x + 2*wheel_pitch}" y="${y}" z="${wheel_r}"/>
+    <xacro:track_wheel side="${side}" idx="4" x="${road_first_x + 3*wheel_pitch}" y="${y}" z="${wheel_r}"/>
+    <xacro:track_wheel side="${side}" idx="5" x="${road_first_x + 4*wheel_pitch}" y="${y}" z="${wheel_r}"/>
+    <xacro:track_wheel side="${side}" idx="6" x="${road_first_x + 5*wheel_pitch}" y="${y}" z="${wheel_r}"/>
+    <xacro:track_wheel side="${side}" idx="7" x="${road_first_x + 6*wheel_pitch}" y="${y}" z="${wheel_r}"/>
+    <!-- slope wheels, given by the height zt (m) where they touch the slope line -->
+    <xacro:front_slope_wheel side="${side}" y="${y}" idx="f1" zt="0.040"/>
+    <xacro:front_slope_wheel side="${side}" y="${y}" idx="f2" zt="0.070"/>
+    <xacro:front_slope_wheel side="${side}" y="${y}" idx="f3" zt="0.100"/>
+    <xacro:front_slope_wheel side="${side}" y="${y}" idx="f4" zt="0.130"/>
+    <xacro:front_slope_wheel side="${side}" y="${y}" idx="f5" zt="0.150"/>
+    <xacro:rear_slope_wheel  side="${side}" y="${y}" idx="r1" zt="0.050"/>
+    <xacro:rear_slope_wheel  side="${side}" y="${y}" idx="r2" zt="0.090"/>
+    <xacro:rear_slope_wheel  side="${side}" y="${y}" idx="r3" zt="0.130"/>
+  </xacro:macro>
+
+  <xacro:track_side side="left"  y="${ track_y}"/>
+  <xacro:track_side side="right" y="${-track_y}"/>
+
+  <!-- ======================= OAK-D Lite camera ========================== -->
+  <!-- Mounted at the front of the top bracket, on a small 20 mm riser so that
+       the hull is out of the image, tilted 5 deg down to see the floor ahead. -->
+  <xacro:include filename="$(find bunker_simulation)/urdf/oak_d_lite.urdf.xacro"/>
+
+  <link name="oak_mount">
+    <inertial>
+      <mass value="0.05"/>
+      <inertia ixx="2e-5" ixy="0" ixz="0" iyy="2e-5" iyz="0" izz="2e-5"/>
+    </inertial>
+    <visual>
+      <origin xyz="0 0 0.010" rpy="0 0 0"/>
+      <geometry><box size="0.030 0.060 0.020"/></geometry>
+      <material name="bunker_dark"/>
+    </visual>
+  </link>
+  <joint name="oak_mount_joint" type="fixed">
+    <parent link="base_link"/>
+    <child link="oak_mount"/>
+    <origin xyz="0.300 0 ${hull_top + rail_h - base_z}" rpy="0 0 0"/>
+  </joint>
+
+  <xacro:oak_d_lite parent="oak_mount" xyz="0 0 ${0.020 + 0.014}" rpy="0 ${5*PI/180} 0"/>
+
+  <!-- ===================== Gazebo materials / extras ===================== -->
+  <gazebo reference="base_link">
+    <mu1>0.6</mu1>
+    <mu2>0.6</mu2>
+  </gazebo>
+
+  <!-- ========================= Gazebo plugins =========================== -->
+  <gazebo>
+    <!-- Skid-steer drive: all wheels of a side get the same speed -->
+    <plugin filename="gz-sim-diff-drive-system" name="gz::sim::systems::DiffDrive">
+      <left_joint>left_wheel_1_joint</left_joint>
+      <left_joint>left_wheel_2_joint</left_joint>
+      <left_joint>left_wheel_3_joint</left_joint>
+      <left_joint>left_wheel_4_joint</left_joint>
+      <left_joint>left_wheel_5_joint</left_joint>
+      <left_joint>left_wheel_6_joint</left_joint>
+      <left_joint>left_wheel_7_joint</left_joint>
+      <left_joint>left_wheel_f1_joint</left_joint>
+      <left_joint>left_wheel_f2_joint</left_joint>
+      <left_joint>left_wheel_f3_joint</left_joint>
+      <left_joint>left_wheel_f4_joint</left_joint>
+      <left_joint>left_wheel_f5_joint</left_joint>
+      <left_joint>left_wheel_r1_joint</left_joint>
+      <left_joint>left_wheel_r2_joint</left_joint>
+      <left_joint>left_wheel_r3_joint</left_joint>
+      <right_joint>right_wheel_1_joint</right_joint>
+      <right_joint>right_wheel_2_joint</right_joint>
+      <right_joint>right_wheel_3_joint</right_joint>
+      <right_joint>right_wheel_4_joint</right_joint>
+      <right_joint>right_wheel_5_joint</right_joint>
+      <right_joint>right_wheel_6_joint</right_joint>
+      <right_joint>right_wheel_7_joint</right_joint>
+      <right_joint>right_wheel_f1_joint</right_joint>
+      <right_joint>right_wheel_f2_joint</right_joint>
+      <right_joint>right_wheel_f3_joint</right_joint>
+      <right_joint>right_wheel_f4_joint</right_joint>
+      <right_joint>right_wheel_f5_joint</right_joint>
+      <right_joint>right_wheel_r1_joint</right_joint>
+      <right_joint>right_wheel_r2_joint</right_joint>
+      <right_joint>right_wheel_r3_joint</right_joint>
+      <wheel_separation>${track_sep}</wheel_separation>
+      <wheel_radius>${wheel_r}</wheel_radius>
+      <min_linear_velocity>${-max_lin_vel}</min_linear_velocity>
+      <max_linear_velocity>${max_lin_vel}</max_linear_velocity>
+      <min_linear_acceleration>-2.0</min_linear_acceleration>
+      <max_linear_acceleration>2.0</max_linear_acceleration>
+      <min_angular_velocity>${-max_ang_vel}</min_angular_velocity>
+      <max_angular_velocity>${max_ang_vel}</max_angular_velocity>
+      <topic>/cmd_vel</topic>
+      <odom_topic>/model/bunker_mini/odometry</odom_topic>
+      <tf_topic>/model/bunker_mini/tf</tf_topic>
+      <frame_id>odom</frame_id>
+      <child_frame_id>base_footprint</child_frame_id>
+      <odom_publish_frequency>50</odom_publish_frequency>
+    </plugin>
+
+    <!-- Publishes all wheel joint states (for robot_state_publisher / RViz) -->
+    <plugin filename="gz-sim-joint-state-publisher-system"
+            name="gz::sim::systems::JointStatePublisher">
+      <topic>/world/cave_circuit_practice_01/model/bunker_mini/joint_state</topic>
+    </plugin>
+
+    <!-- Ground-truth pose, useful to compare against odometry -->
+    <plugin filename="gz-sim-odometry-publisher-system"
+            name="gz::sim::systems::OdometryPublisher">
+      <odom_frame>world</odom_frame>
+      <robot_base_frame>base_footprint</robot_base_frame>
+      <odom_topic>/model/bunker_mini/ground_truth</odom_topic>
+      <tf_topic>/model/bunker_mini/ground_truth_tf</tf_topic>
+      <odom_publish_frequency>50</odom_publish_frequency>
+      <dimensions>3</dimensions>
+    </plugin>
+  </gazebo>
+
+  <!-- Front LED light bar as a real spot light (the cave is completely dark) -->
+  <gazebo reference="base_link">
+    <light name="front_led_light" type="spot">
+      <pose>${hull_length/2 + 0.01} 0 ${ground_clear + hull_height*0.6 - base_z} 0 0.10 0</pose>
+      <diffuse>1.0 1.0 0.95 1</diffuse>
+      <specular>0.3 0.3 0.3 1</specular>
+      <attenuation>
+        <range>30</range>
+        <constant>0.1</constant>
+        <linear>0.015</linear>
+        <quadratic>0.001</quadratic>
+      </attenuation>
+      <direction>1 0 0</direction>
+      <spot>
+        <inner_angle>0.5</inner_angle>
+        <outer_angle>1.15</outer_angle>
+        <falloff>0.7</falloff>
+      </spot>
+      <cast_shadows>true</cast_shadows>
+    </light>
+  </gazebo>
+
+</robot>

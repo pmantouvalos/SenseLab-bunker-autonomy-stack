@@ -1,0 +1,77 @@
+# ROS 2 <-> Gazebo topic bridge (ros_gz_bridge)
+# GZ_TO_ROS: Gazebo publishes, ROS subscribes.  ROS_TO_GZ: the opposite.
+
+# Simulation clock -> required for use_sim_time
+- ros_topic_name: "/clock"
+  gz_topic_name: "/clock"
+  ros_type_name: "rosgraph_msgs/msg/Clock"
+  gz_type_name: "gz.msgs.Clock"
+  direction: GZ_TO_ROS
+
+# Velocity commands (state_manager / teleop -> robot)
+- ros_topic_name: "/cmd_vel"
+  gz_topic_name: "/cmd_vel"
+  ros_type_name: "geometry_msgs/msg/Twist"
+  gz_type_name: "gz.msgs.Twist"
+  direction: ROS_TO_GZ
+
+# Wheel odometry from the DiffDrive plugin
+- ros_topic_name: "/odom"
+  gz_topic_name: "/model/bunker_mini/odometry"
+  ros_type_name: "nav_msgs/msg/Odometry"
+  gz_type_name: "gz.msgs.Odometry"
+  direction: GZ_TO_ROS
+
+# odom -> base_footprint transform
+- ros_topic_name: "/tf"
+  gz_topic_name: "/model/bunker_mini/tf"
+  ros_type_name: "tf2_msgs/msg/TFMessage"
+  gz_type_name: "gz.msgs.Pose_V"
+  direction: GZ_TO_ROS
+
+# Ground-truth pose (perfect, from the simulator) for evaluation
+- ros_topic_name: "/ground_truth/odom"
+  gz_topic_name: "/model/bunker_mini/ground_truth"
+  ros_type_name: "nav_msgs/msg/Odometry"
+  gz_type_name: "gz.msgs.Odometry"
+  direction: GZ_TO_ROS
+
+# Wheel joint states -> robot_state_publisher
+- ros_topic_name: "/joint_states"
+  gz_topic_name: "/world/cave_circuit_practice_01/model/bunker_mini/joint_state"
+  ros_type_name: "sensor_msgs/msg/JointState"
+  gz_type_name: "gz.msgs.Model"
+  direction: GZ_TO_ROS
+
+# ---------------- OAK-D Lite camera ----------------
+# ROS names follow the real depthai-ros driver (/oak/rgb, /oak/stereo),
+# so the same nodes work in simulation and on the real robot.
+
+# Colour image
+- ros_topic_name: "/oak/rgb/image_raw"
+  gz_topic_name: "/oak/rgbd/image"
+  ros_type_name: "sensor_msgs/msg/Image"
+  gz_type_name: "gz.msgs.Image"
+  direction: GZ_TO_ROS
+
+# Camera intrinsics (focal length, centre) - needed to turn pixels into 3D
+- ros_topic_name: "/oak/rgb/camera_info"
+  gz_topic_name: "/oak/rgbd/camera_info"
+  ros_type_name: "sensor_msgs/msg/CameraInfo"
+  gz_type_name: "gz.msgs.CameraInfo"
+  direction: GZ_TO_ROS
+
+# Depth image aligned to the colour image (32-bit float, metres)
+- ros_topic_name: "/oak/stereo/image_raw"
+  gz_topic_name: "/oak/rgbd/depth_image"
+  ros_type_name: "sensor_msgs/msg/Image"
+  gz_type_name: "gz.msgs.Image"
+  direction: GZ_TO_ROS
+
+# Coloured 3D point cloud. Gazebo labels it with the optical frame but its axes
+# are x-forward, so oak_points_relay re-labels it and publishes /oak/points.
+- ros_topic_name: "/oak/points_raw"
+  gz_topic_name: "/oak/rgbd/points"
+  ros_type_name: "sensor_msgs/msg/PointCloud2"
+  gz_type_name: "gz.msgs.PointCloudPacked"
+  direction: GZ_TO_ROS

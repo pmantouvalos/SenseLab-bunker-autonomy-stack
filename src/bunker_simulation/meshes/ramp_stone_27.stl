@@ -1,0 +1,86 @@
+solid ramp_stone_27.stl
+ facet normal 0.00000 0.00000 1.00000
+  outer loop
+   vertex -0.02570 -0.01974 0.02361
+   vertex 0.02570 -0.01974 0.02361
+   vertex 0.02570 0.01974 0.02361
+  endloop
+ endfacet
+ facet normal 0.00000 0.00000 1.00000
+  outer loop
+   vertex -0.02570 -0.01974 0.02361
+   vertex 0.02570 0.01974 0.02361
+   vertex -0.02570 0.01974 0.02361
+  endloop
+ endfacet
+ facet normal 0.00000 0.00000 -1.00000
+  outer loop
+   vertex -0.06819 -0.06223 -0.00500
+   vertex 0.06819 0.06223 -0.00500
+   vertex 0.06819 -0.06223 -0.00500
+  endloop
+ endfacet
+ facet normal 0.00000 0.00000 -1.00000
+  outer loop
+   vertex -0.06819 -0.06223 -0.00500
+   vertex -0.06819 0.06223 -0.00500
+   vertex 0.06819 0.06223 -0.00500
+  endloop
+ endfacet
+ facet normal 0.00000 -0.55846 0.82953
+  outer loop
+   vertex -0.06819 -0.06223 -0.00500
+   vertex 0.06819 -0.06223 -0.00500
+   vertex 0.02570 -0.01974 0.02361
+  endloop
+ endfacet
+ facet normal 0.00000 -0.55846 0.82953
+  outer loop
+   vertex -0.06819 -0.06223 -0.00500
+   vertex 0.02570 -0.01974 0.02361
+   vertex -0.02570 -0.01974 0.02361
+  endloop
+ endfacet
+ facet normal 0.55846 -0.00000 0.82953
+  outer loop
+   vertex 0.06819 -0.06223 -0.00500
+   vertex 0.06819 0.06223 -0.00500
+   vertex 0.02570 0.01974 0.02361
+  endloop
+ endfacet
+ facet normal 0.55846 0.00000 0.82953
+  outer loop
+   vertex 0.06819 -0.06223 -0.00500
+   vertex 0.02570 0.01974 0.02361
+   vertex 0.02570 -0.01974 0.02361
+  endloop
+ endfacet
+ facet normal 0.00000 0.55846 0.82953
+  outer loop
+   vertex 0.06819 0.06223 -0.00500
+   vertex -0.06819 0.06223 -0.00500
+   vertex -0.02570 0.01974 0.02361
+  endloop
+ endfacet
+ facet normal 0.00000 0.55846 0.82953
+  outer loop
+   vertex 0.06819 0.06223 -0.00500
+   vertex -0.02570 0.01974 0.02361
+   vertex 0.02570 0.01974 0.02361
+  endloop
+ endfacet
+ facet normal -0.55846 0.00000 0.82953
+  outer loop
+   vertex -0.06819 0.06223 -0.00500
+   vertex -0.06819 -0.06223 -0.00500
+   vertex -0.02570 -0.01974 0.02361
+  endloop
+ endfacet
+ facet normal -0.55846 0.00000 0.82953
+  outer loop
+   vertex -0.06819 0.06223 -0.00500
+   vertex -0.02570 -0.01974 0.02361
+   vertex -0.02570 0.01974 0.02361
+  endloop
+ endfacet
+endsolid ramp_stone_27.stl

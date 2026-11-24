@@ -1,0 +1,121 @@
+<?xml version="1.0"?>
+<!--
+  Luxonis OAK-D Lite stereo depth camera (simulation model).
+
+  Official specs (docs.luxonis.com/hardware/products/OAK-D Lite):
+    Color camera  : IMX214, DFOV/HFOV/VFOV 81 / 69 / 54 deg
+    Stereo pair   : 2 x OV7251 global shutter, 640x480, HFOV 73 deg
+    Baseline      : 75 mm
+    Depth         : ideal ~0.8 - 12 m, MinZ ~0.2 m (400P + extended disparity)
+    Depth accuracy: < 2% below 4 m, < 4% at 4-7 m, < 6% at 7-10 m
+    Size          : 91 x 28 x 17.5 mm, 61 g
+    VPU           : RVC2 (runs the neural network, e.g. YOLO, on the camera)
+
+  In Gazebo it is one "rgbd_camera" sensor: a colour image plus a depth image
+  aligned to it, which is what the real camera gives when the stereo depth is
+  aligned to the RGB camera (the usual setting for spatial detection).
+  Resolution is 640x480 (same 4:3 aspect as the IMX214) to keep the sim fast.
+
+  Gazebo topics (prefix = <topic>):
+    <topic>/image, <topic>/depth_image, <topic>/points, <topic>/camera_info
+  They are bridged to ROS as /oak/rgb/..., /oak/stereo/..., /oak/points
+  (config/bridge.yaml), the same names the real depthai-ros driver uses.
+-->
+<robot xmlns:xacro="http://www.ros.org/wiki/xacro">
+
+  <xacro:macro name="oak_d_lite" params="parent xyz rpy">
+
+    <!-- camera body -->
+    <link name="oak_link">
+      <inertial>
+        <mass value="0.061"/>
+        <inertia ixx="4.4e-5" ixy="0" ixz="0" iyy="5.6e-6" iyz="0" izz="4.4e-5"/>
+      </inertial>
+      <visual>
+        <geometry><box size="0.0175 0.091 0.028"/></geometry>
+        <material name="oak_grey"><color rgba="0.25 0.27 0.30 1.0"/></material>
+      </visual>
+      <!-- lenses on the front face: left mono, colour, right mono (75 mm apart) -->
+      <visual>
+        <origin xyz="0.009 0.0375 0" rpy="0 ${pi/2} 0"/>
+        <geometry><cylinder radius="0.005" length="0.002"/></geometry>
+        <material name="oak_lens"><color rgba="0.02 0.02 0.03 1.0"/></material>
+      </visual>
+      <visual>
+        <origin xyz="0.009 0 0" rpy="0 ${pi/2} 0"/>
+        <geometry><cylinder radius="0.006" length="0.002"/></geometry>
+        <material name="oak_lens"/>
+      </visual>
+      <visual>
+        <origin xyz="0.009 -0.0375 0" rpy="0 ${pi/2} 0"/>
+        <geometry><cylinder radius="0.005" length="0.002"/></geometry>
+        <material name="oak_lens"/>
+      </visual>
+      <collision>
+        <geometry><box size="0.0175 0.091 0.028"/></geometry>
+      </collision>
+    </link>
+
+    <joint name="oak_joint" type="fixed">
+      <parent link="${parent}"/>
+      <child link="oak_link"/>
+      <origin xyz="${xyz}" rpy="${rpy}"/>
+    </joint>
+
+    <!-- ROS "optical" frame convention: z forward, x right, y down.
+         Images and depth are expressed in this frame. -->
+    <link name="oak_rgb_camera_optical_frame"/>
+    <joint name="oak_optical_joint" type="fixed">
+      <parent link="oak_link"/>
+      <child link="oak_rgb_camera_optical_frame"/>
+      <origin xyz="0.009 0 0" rpy="${-pi/2} 0 ${-pi/2}"/>
+    </joint>
+
+    <!-- Same point, "body" convention: x forward, y left, z up.
+         Gazebo publishes the point cloud in this convention (the images use the
+         optical frame above), so the cloud is re-labelled with this frame by
+         the oak_points_relay node. -->
+    <link name="oak_rgb_camera_frame"/>
+    <joint name="oak_rgb_camera_joint" type="fixed">
+      <parent link="oak_link"/>
+      <child link="oak_rgb_camera_frame"/>
+      <origin xyz="0.009 0 0" rpy="0 0 0"/>
+    </joint>
+
+    <!-- The simulated sensor -->
+    <gazebo reference="oak_link">
+      <sensor name="oak_d_lite" type="rgbd_camera">
+        <always_on>true</always_on>
+        <update_rate>15</update_rate>
+        <visualize>false</visualize>
+        <topic>oak/rgbd</topic>
+        <gz_frame_id>oak_rgb_camera_optical_frame</gz_frame_id>
+        <pose>0.009 0 0 0 0 0</pose>
+        <camera name="oak_rgb">
+          <horizontal_fov>${69*pi/180}</horizontal_fov>
+          <image>
+            <width>640</width>
+            <height>480</height>
+            <format>R8G8B8</format>
+          </image>
+          <clip>
+            <near>0.05</near>
+            <far>30.0</far>
+          </clip>
+          <depth_camera>
+            <clip>
+              <near>0.2</near>   <!-- MinZ -->
+              <far>12.0</far>    <!-- end of the ideal range -->
+            </clip>
+          </depth_camera>
+          <noise>
+            <type>gaussian</type>
+            <mean>0.0</mean>
+            <stddev>0.007</stddev>
+          </noise>
+        </camera>
+      </sensor>
+    </gazebo>
+
+  </xacro:macro>
+</robot>

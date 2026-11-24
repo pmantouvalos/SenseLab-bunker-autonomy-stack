@@ -1,0 +1,5 @@
+newmtl gravel
+Ka 0.6 0.6 0.6
+Kd 0.9 0.9 0.9
+Ks 0.02 0.02 0.02
+map_Kd gravel.png
