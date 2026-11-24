@@ -1,6 +1,6 @@
 import rclpy
 from rclpy.node import Node
-from geometry_msgs.msg import Twist # Το μήνυμα ταχύτητας που καταλαβαίνει το Bunker
+from geometry_msgs.msg import Twist # Velocity message understood by the Bunker
 
 class RoverStateManager(Node):
     def __init__(self):
@@ -8,31 +8,39 @@ class RoverStateManager(Node):
         self.get_logger().info('Rover Boot Sequence Initiated...')
         self.get_logger().info('Comms: Denied. GPS: Denied. Executing Auto-Return Sequence.')
         
-        # 1. Δημιουργούμε τον Publisher που μιλάει στο ρομπότ
+        # 1. Create the publisher that talks to the robot
         self.publisher_ = self.create_publisher(Twist, '/cmd_vel', 10)
         
-        # 2. Το timer χτυπάει 10 φορές το δευτερόλεπτο (0.1s) για να κρατάει το ρομπότ "ξύπνιο"
+        # 2. The timer fires 10 times per second (0.1 s) to keep the robot "awake"
         self.timer = self.create_timer(0.1, self.timer_callback)
         
-        # 3. Μεταβλητές της Μηχανής Καταστάσεων
+        # 3. State machine variables
         self.state = 0
-        self.state_start_time = self.get_clock().now()
+        # Set in the first callback: with use_sim_time the clock is 0
+        # until the first /clock message arrives from Gazebo.
+        self.state_start_time = None
         
-        # 4. Ρυθμίσεις κίνησης (Ταχύτητες και Χρόνοι)
+        # 4. Motion settings (speeds and durations)
         self.forward_speed = 0.5     # m/s
-        self.forward_duration = 4.0  # Δευτερόλεπτα κίνησης
+        self.forward_duration = 4.0  # Seconds of motion
         
         self.turn_speed = 0.5        # rad/s
-        self.turn_duration = 6.9    # Δευτερόλεπτα για 180 μοίρες (0.5 * 6.28 = 3.14 rad)
+        self.turn_duration = 6.9    # Seconds for 180 degrees (0.5 * 6.28 = 3.14 rad)
 
     def timer_callback(self):
         msg = Twist()
-        
-        # Πόσος χρόνος έχει περάσει από τότε που μπήκαμε στην τρέχουσα κατάσταση;
+
+        if self.state_start_time is None:
+            now = self.get_clock().now()
+            if now.nanoseconds == 0:
+                return  # no simulation clock yet
+            self.state_start_time = now
+
+        # How much time has passed since entering the current state?
         elapsed_time = (self.get_clock().now() - self.state_start_time).nanoseconds / 1e9
         
         if self.state == 0:
-            # ΚΑΤΑΣΤΑΣΗ 0: Κίνηση Μπροστά
+            # STATE 0: Move forward
             if elapsed_time < self.forward_duration:
                 msg.linear.x = self.forward_speed
                 self.get_logger().info('State 0: Moving Forward (0.5 m/s)...', once=True)
@@ -40,7 +48,7 @@ class RoverStateManager(Node):
                 self.transition_to_next_state()
                 
         elif self.state == 1:
-            # ΚΑΤΑΣΤΑΣΗ 1: Στροφή 180 μοίρες
+            # STATE 1: Turn 180 degrees
             if elapsed_time < self.turn_duration:
                 msg.angular.z = self.turn_speed
                 self.get_logger().info('State 1: Turning 180 degrees...', once=True)
@@ -48,7 +56,7 @@ class RoverStateManager(Node):
                 self.transition_to_next_state()
                 
         elif self.state == 2:
-            # ΚΑΤΑΣΤΑΣΗ 2: Επιστροφή
+            # STATE 2: Return
             if elapsed_time < self.forward_duration:
                 msg.linear.x = self.forward_speed
                 self.get_logger().info('State 2: Returning to base...', once=True)
@@ -56,7 +64,7 @@ class RoverStateManager(Node):
                 self.transition_to_next_state()
                 
         elif self.state == 3:
-            # ΚΑΤΑΣΤΑΣΗ 3: Στροφή 180 μοίρες (Επαναφορά Κατεύθυνσης)
+            # STATE 3: Turn 180 degrees (restore heading)
             if elapsed_time < self.turn_duration:
                 msg.angular.z = self.turn_speed
                 self.get_logger().info('State 3: Re-aligning to original heading...', once=True)
@@ -64,20 +72,20 @@ class RoverStateManager(Node):
                 self.transition_to_next_state()
                 
         elif self.state == 4:
-            # ΚΑΤΑΣΤΑΣΗ 4: Τέλος (Στάθμευση)
+            # STATE 4: Done (park)
             msg.linear.x = 0.0
             msg.angular.z = 0.0
             self.get_logger().info('Sequence Complete. Net displacement: 0.', once=True)
-            # Παραμένουμε εδώ στέλνοντας μηδενικά για να μείνει ακίνητο
+            # Stay here sending zeros so the robot stays still
 
-        # Στέλνουμε το μήνυμα στο CAN bus
+        # Send the message to the CAN bus
         self.publisher_.publish(msg)
 
     def transition_to_next_state(self):
-        """Βοηθητική συνάρτηση για την αλλαγή κατάστασης"""
+        """Helper function for changing state"""
         self.state += 1
         self.state_start_time = self.get_clock().now()
-        # Βάζουμε ένα μικρό φρένο μεταξύ των κινήσεων για να μην κλωτσήσουν τα μοτέρ
+        # Add a short brake between motions so the motors do not jerk
         msg = Twist()
         self.publisher_.publish(msg)
 
@@ -90,7 +98,7 @@ def main(args=None):
     except KeyboardInterrupt:
         pass
     finally:
-        # Όταν πατήσεις Ctrl+C, στέλνει εντολή στάσης για ασφάλεια πριν κλείσει
+        # On Ctrl+C, send a stop command for safety before shutting down
         stop_msg = Twist()
         node.publisher_.publish(stop_msg)
         node.destroy_node()

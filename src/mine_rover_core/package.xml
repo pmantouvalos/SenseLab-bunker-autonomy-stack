@@ -3,11 +3,23 @@
 <package format="3">
   <name>mine_rover_core</name>
   <version>0.0.0</version>
-  <description>TODO: Package description</description>
+  <description>Lane following, artifact detection, state machine and dashboard for the Bunker Mini 2.0 UGV</description>
   <maintainer email="madpan01@gmail.com">mad-pan</maintainer>
   <license>TODO: License declaration</license>
 
   <depend>rclpy</depend>
+  <exec_depend>sensor_msgs</exec_depend>
+  <exec_depend>geometry_msgs</exec_depend>
+  <exec_depend>std_msgs</exec_depend>
+  <exec_depend>vision_msgs</exec_depend>
+  <exec_depend>visualization_msgs</exec_depend>
+  <exec_depend>cv_bridge</exec_depend>
+  <exec_depend>message_filters</exec_depend>
+  <exec_depend>tf2_ros</exec_depend>
+  <exec_depend>tf2_geometry_msgs</exec_depend>
+  <exec_depend>nav_msgs</exec_depend>
+  <exec_depend>ament_index_python</exec_depend>
+  <!-- YOLO (pip, not apt): see docs/YOLO_TRAINING.md -->
 
   <test_depend>ament_copyright</test_depend>
   <test_depend>ament_flake8</test_depend>

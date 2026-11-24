@@ -1,0 +1,360 @@
+<!doctype html>
+<html lang="el">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Mine Rover · Dashboard</title>
+<style>
+  :root {
+    --bg: #0f1419; --panel: #182029; --panel2: #1f2a35; --line: #2c3a48;
+    --text: #e6edf3; --muted: #8b9bab;
+    --ok: #3ddc84; --warn: #ffb020; --bad: #ff4d4d; --info: #4da3ff;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text);
+         font: 15px/1.4 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+  header { display: flex; align-items: center; gap: 16px; padding: 10px 18px;
+           background: var(--panel); border-bottom: 1px solid var(--line); }
+  header h1 { font-size: 18px; margin: 0; font-weight: 650; letter-spacing: .3px; }
+  #conn { margin-left: auto; font-size: 13px; color: var(--muted); }
+  #conn.bad { color: var(--bad); }
+  main { display: grid; gap: 14px; padding: 14px 18px 110px;
+         grid-template-columns: 330px 1fr 340px; align-items: start; }
+  @media (max-width: 1100px) { main { grid-template-columns: 1fr; } }
+  section { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 14px; }
+  h2 { margin: 0 0 10px; font-size: 12px; text-transform: uppercase; letter-spacing: 1px; color: var(--muted); font-weight: 600; }
+
+  /* state */
+  #state { font-size: 26px; font-weight: 750; padding: 10px 12px; border-radius: 8px; text-align: center;
+           background: var(--panel2); border: 2px solid var(--line); }
+  #state.MANUAL { border-color: var(--info); color: var(--info); }
+  #state.AUTO { border-color: var(--ok); color: var(--ok); }
+  #state.ESTOP { border-color: var(--bad); color: #fff; background: var(--bad); animation: blink 1s infinite; }
+  #state.STANDBY { border-color: var(--warn); color: var(--warn); }
+  #state.NONE { border-color: var(--bad); color: var(--bad); }
+  #substate { text-align: center; margin: 8px 0 2px; font-family: ui-monospace, monospace; font-size: 13px; color: var(--muted); }
+  #reason { text-align: center; font-size: 14px; min-height: 40px; }
+
+  .modes { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 12px; }
+  button { font: inherit; font-weight: 650; color: var(--text); background: var(--panel2); border: 1px solid var(--line);
+           border-radius: 8px; padding: 12px 10px; cursor: pointer; transition: filter .1s; }
+  button:hover:not(:disabled) { filter: brightness(1.25); }
+  button:disabled { opacity: .35; cursor: not-allowed; }
+  #bManual { border-color: var(--info); } #bAuto { border-color: var(--ok); }
+  #bAuto, #bManual { font-size: 17px; padding: 16px 10px; }
+  #bStandby { grid-column: span 2; }
+
+  /* manual pad */
+  .pad { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; margin: 10px 0; }
+  .pad button { padding: 16px 0; font-size: 20px; user-select: none; touch-action: none; }
+  .pad button.on { background: var(--info); color: #001; }
+  label { display: block; font-size: 13px; color: var(--muted); margin-top: 8px; }
+  input[type=range] { width: 100%; }
+  .hint { font-size: 12px; color: var(--muted); margin-top: 6px; }
+
+  /* video */
+  .videos { display: grid; gap: 14px; grid-template-columns: 1fr; }
+  .vid { position: relative; background: #000; border-radius: 8px; overflow: hidden; aspect-ratio: 4/3; }
+  .vid img { width: 100%; height: 100%; object-fit: contain; display: block; position: relative; z-index: 1; }
+  .vid .nosig { position: absolute; inset: 0; display: grid; place-items: center; color: var(--muted); font-size: 14px; }
+  .vid .tag { position: absolute; left: 8px; top: 8px; z-index: 2; background: #000a; padding: 2px 8px; border-radius: 4px; font-size: 12px; }
+  @media (min-width: 1500px) { .videos { grid-template-columns: 1fr 1fr; } }
+
+  /* telemetry */
+  table { width: 100%; border-collapse: collapse; font-size: 14px; }
+  td { padding: 4px 0; border-bottom: 1px solid var(--line); }
+  td:last-child { text-align: right; font-family: ui-monospace, monospace; }
+  .pill { display: inline-block; padding: 1px 8px; border-radius: 10px; font-size: 12px; font-weight: 650; }
+  .pill.ok { background: #3ddc8433; color: var(--ok); } .pill.no { background: #ff4d4d33; color: var(--bad); }
+
+  /* alerts */
+  #alerts { max-height: 300px; overflow: auto; }
+  .alert { padding: 8px 10px; margin-bottom: 6px; border-left: 4px solid var(--warn); background: var(--panel2); border-radius: 4px; }
+  .alert b { color: var(--warn); } .alert small { color: var(--muted); display: block; font-family: ui-monospace, monospace; }
+  .empty { color: var(--muted); font-size: 13px; }
+
+  /* found figures + map */
+  .found { display: flex; gap: 10px; align-items: center; }
+  .found img { width: 64px; height: 64px; object-fit: cover; border-radius: 8px; border: 2px solid var(--warn); background: #000; }
+  #map { width: 100%; height: auto; background: #10161c; border-radius: 8px; display: block; }
+  #bannerImg { display: none; width: 150px; height: 150px; object-fit: cover; border-radius: 12px; border: 4px solid #fff;
+               margin: 10px auto 0; }
+
+  /* big warning banner */
+  #banner { position: fixed; left: 0; right: 0; top: 0; z-index: 50; display: none; padding: 18px 24px; text-align: center;
+            background: var(--bad); color: #fff; font-size: 28px; font-weight: 800; animation: blink .8s infinite;
+            box-shadow: 0 6px 30px #000a; }
+  #banner small { display: block; font-size: 16px; font-weight: 500; margin-top: 4px; }
+  #banner button { margin-top: 10px; background: #fff; color: #b00000; border: 0; }
+  @keyframes blink { 50% { filter: brightness(.65); } }
+
+  /* emergency stop: always visible */
+  #estopbar { position: fixed; left: 0; right: 0; bottom: 0; z-index: 40; display: flex; gap: 12px; justify-content: center;
+              padding: 12px; background: #0b0f13ee; border-top: 1px solid var(--line); }
+  #bEstop { background: #d80000; border: 3px solid #ff8a8a; color: #fff; font-size: 24px; font-weight: 850;
+            padding: 14px 60px; border-radius: 14px; letter-spacing: 1px; }
+  #bReset { font-size: 16px; padding: 14px 24px; border-color: var(--warn); color: var(--warn); }
+</style>
+</head>
+<body>
+
+<div id="banner" role="alert">
+  <div id="bannerTitle">⚠ SOMETHING FOUND!</div>
+  <small id="bannerSub"></small>
+  <img id="bannerImg" alt="">
+  <button id="bAck">OK, got it</button>
+</div>
+
+<header>
+  <h1>⛏ Mine Rover · Mission control</h1>
+  <span id="conn">connecting…</span>
+</header>
+
+<main>
+  <!-- LEFT: state + controls -->
+  <div style="display:grid; gap:14px">
+    <section>
+      <h2>Status</h2>
+      <div id="state">—</div>
+      <div id="substate"></div>
+      <div id="reason"></div>
+      <div class="modes">
+        <button id="bManual">🕹 MANUAL</button>
+        <button id="bAuto">🤖 AUTO</button>
+        <button id="bStandby">⏸ Stop (STANDBY)</button>
+      </div>
+    </section>
+
+    <section>
+      <h2>Manual driving</h2>
+      <div class="pad">
+        <span></span><button data-k="w">▲</button><span></span>
+        <button data-k="a">◀</button><button data-k="s">▼</button><button data-k="d">▶</button>
+      </div>
+      <label>Max speed: <b id="linv">0.40</b> m/s
+        <input id="lin" type="range" min="0.1" max="0.8" step="0.05" value="0.4"></label>
+      <label>Max turn rate: <b id="angv">0.80</b> rad/s
+        <input id="ang" type="range" min="0.2" max="1.5" step="0.1" value="0.8"></label>
+      <div class="hint">Keys: W A S D or arrows (hold to drive). <b>Space</b> = EMERGENCY STOP.
+        Works only in MANUAL mode; the robot stops when you release the key.</div>
+    </section>
+  </div>
+
+  <!-- CENTER: cameras -->
+  <section>
+    <h2>Camera</h2>
+    <div class="videos">
+      <div class="vid"><div class="nosig">no signal (is artifact_detector running?)</div>
+        <img src="/stream/camera" alt=""><span class="tag">Objects · YOLO</span></div>
+      <div class="vid"><div class="nosig">no signal (is lane_detector running?)</div>
+        <img src="/stream/lane" alt=""><span class="tag">Lane · neural network</span></div>
+    </div>
+    <h2 style="margin-top:16px">Track map</h2>
+    <canvas id="map" width="1200" height="260"></canvas>
+    <div class="hint">White lines = track limits · red rectangles = rocks the robot remembers ·
+      ▲ = robot · coloured dots = figures found (with coordinates).</div>
+  </section>
+
+  <!-- RIGHT: alerts + telemetry -->
+  <div style="display:grid; gap:14px">
+    <section>
+      <h2>Findings <span id="nfound" class="pill ok">0</span></h2>
+      <div id="alerts"><div class="empty">Nothing found yet.</div></div>
+    </section>
+    <section>
+      <h2>Telemetry</h2>
+      <table>
+        <tr><td>Speed (odom)</td><td id="tSpeed">—</td></tr>
+        <tr><td>Command → robot</td><td id="tCmd">—</td></tr>
+        <tr><td>Lane</td><td id="tLane">—</td></tr>
+        <tr><td>Line source</td><td id="tSrc">—</td></tr>
+        <tr><td>Position error e</td><td id="tE">—</td></tr>
+        <tr><td>Heading error ψ</td><td id="tPsi">—</td></tr>
+        <tr><td>Steering δ (Stanley)</td><td id="tDelta">—</td></tr>
+      </table>
+    </section>
+  </div>
+</main>
+
+<div id="estopbar">
+  <button id="bEstop">⛔ EMERGENCY STOP</button>
+  <button id="bReset">Release (RESET)</button>
+</div>
+
+<script>
+const NAMES = { person: 'Person / Survivor', backpack: 'Backpack', fire_extinguisher: 'Fire extinguisher',
+                'cell phone': 'Cell phone', helmet: 'Helmet', survivor: 'Survivor' };
+const COLORS = { person: '#e53935', survivor: '#e53935' };
+const $ = id => document.getElementById(id);
+const post = (url, body) => fetch(url, { method: 'POST', body: JSON.stringify(body) }).catch(() => {});
+const sendCmd = cmd => post('/api/command', { cmd });
+
+let lastKey = '', mode = 'NONE', seen = null, held = new Set(), audio = null;
+
+// ---------- buttons
+$('bManual').onclick = () => sendCmd('MANUAL');
+$('bAuto').onclick = () => sendCmd('AUTO');
+$('bStandby').onclick = () => sendCmd('STANDBY');
+$('bEstop').onclick = estop;
+$('bReset').onclick = () => sendCmd('RESET');
+function estop() { held.clear(); document.querySelectorAll('.pad button').forEach(b => b.classList.remove('on')); sendCmd('ESTOP'); }
+$('lin').oninput = () => $('linv').textContent = (+$('lin').value).toFixed(2);
+$('ang').oninput = () => $('angv').textContent = (+$('ang').value).toFixed(2);
+
+// ---------- manual driving (hold to move)
+const KEYMAP = { w: 'w', arrowup: 'w', s: 's', arrowdown: 's', a: 'a', arrowleft: 'a', d: 'd', arrowright: 'd' };
+document.querySelectorAll('.pad button').forEach(b => {
+  const k = b.dataset.k;
+  b.onpointerdown = e => { e.preventDefault(); held.add(k); b.classList.add('on'); };
+  const up = () => { held.delete(k); b.classList.remove('on'); };
+  b.onpointerup = up; b.onpointerleave = up; b.onpointercancel = up;
+});
+addEventListener('keydown', e => {
+  if (e.code === 'Space') { e.preventDefault(); estop(); return; }
+  const k = KEYMAP[e.key.toLowerCase()];
+  if (k) { e.preventDefault(); held.add(k); }
+});
+addEventListener('keyup', e => { const k = KEYMAP[e.key.toLowerCase()]; if (k) held.delete(k); });
+addEventListener('blur', () => held.clear());
+
+let wasDriving = false;
+setInterval(() => {
+  let lin = 0, ang = 0;
+  if (mode === 'MANUAL') {
+    if (held.has('w')) lin += +$('lin').value;
+    if (held.has('s')) lin -= +$('lin').value;
+    if (held.has('a')) ang += +$('ang').value;
+    if (held.has('d')) ang -= +$('ang').value;
+  }
+  const driving = lin !== 0 || ang !== 0;
+  if (driving || wasDriving) post('/api/drive', { lin, ang });
+  wasDriving = driving;
+}, 100);
+
+// ---------- warning banner + sound
+function beep() {
+  try {
+    audio = audio || new (window.AudioContext || window.webkitAudioContext)();
+    for (let i = 0; i < 3; i++) {
+      const o = audio.createOscillator(), g = audio.createGain();
+      o.type = 'square'; o.frequency.value = 880;
+      g.gain.value = 0.08; o.connect(g); g.connect(audio.destination);
+      o.start(audio.currentTime + i * 0.25); o.stop(audio.currentTime + i * 0.25 + 0.15);
+    }
+  } catch (e) {}
+}
+addEventListener('pointerdown', () => { try { audio = audio || new AudioContext(); audio.resume(); } catch (e) {} }, { once: true });
+$('bAck').onclick = () => { $('banner').style.display = 'none'; };
+
+function showAlert(a) {
+  const label = NAMES[a.name] || a.name;
+  $('bannerTitle').textContent = '🎯 Found: ' + label + '!';
+  $('bannerSub').textContent = a.x !== undefined
+    ? 'at  x = ' + a.x.toFixed(2) + ' m,  y = ' + a.y.toFixed(2) + ' m' : a.text;
+  const img = $('bannerImg');
+  if (a.crop) { img.src = '/crop/' + a.name + '.jpg?v=' + a.crop; img.style.display = 'block'; }
+  else img.style.display = 'none';
+  $('banner').style.display = 'block';
+  beep();
+}
+
+// ---------- map of the track
+function drawMap(s) {
+  const c = $('map'), g = c.getContext('2d');
+  const X0 = -0.6, X1 = 12.6, Y0 = -1.45, Y1 = 1.45;
+  const sx = c.width / (X1 - X0), sy = c.height / (Y1 - Y0);
+  const px = x => (x - X0) * sx, py = y => (Y1 - y) * sy;
+  g.clearRect(0, 0, c.width, c.height);
+  g.fillStyle = '#10161c'; g.fillRect(0, 0, c.width, c.height);
+  // gravel strip + lane lines
+  g.fillStyle = '#1b232b'; g.fillRect(px(-0.5), py(1.2), px(12.5) - px(-0.5), py(-1.2) - py(1.2));
+  g.strokeStyle = '#e8e8e8'; g.lineWidth = 3;
+  for (const y of [0.9, -0.9]) { g.beginPath(); g.moveTo(px(0), py(y)); g.lineTo(px(12), py(y)); g.stroke(); }
+  g.strokeStyle = '#3a4a5a'; g.lineWidth = 1; g.fillStyle = '#8b9bab'; g.font = '14px sans-serif';
+  for (let x = 0; x <= 12; x += 2) { g.beginPath(); g.moveTo(px(x), py(-1.25)); g.lineTo(px(x), py(-1.15)); g.stroke(); g.fillText(x + ' m', px(x) - 12, py(-1.3)); }
+  g.fillText('ENTRANCE', px(-0.5), py(1.3));
+  // rocks the planner remembers
+  g.fillStyle = '#c6282866'; g.strokeStyle = '#ff5252'; g.lineWidth = 2;
+  for (const r of s.rocks || []) { g.fillRect(px(r.x - r.sx / 2), py(r.y + r.sy / 2), r.sx * sx, r.sy * sy);
+    g.strokeRect(px(r.x - r.sx / 2), py(r.y + r.sy / 2), r.sx * sx, r.sy * sy); }
+  // found figures
+  for (const a of s.alerts || []) {
+    if (a.x === undefined) continue;
+    const col = COLORS[a.name] || '#fff';
+    g.fillStyle = col; g.strokeStyle = '#000'; g.lineWidth = 2;
+    g.beginPath(); g.arc(px(a.x), py(a.y), 11, 0, 7); g.fill(); g.stroke();
+    g.fillStyle = '#fff'; g.font = 'bold 15px sans-serif';
+    g.fillText((NAMES[a.name] || a.name) + ' (' + a.x.toFixed(1) + ', ' + a.y.toFixed(1) + ')', px(a.x) + 14, py(a.y) - 10);
+  }
+  // robot
+  const rb = s.robot;
+  if (rb) {
+    g.save(); g.translate(px(rb.x), py(rb.y)); g.rotate(-rb.yaw);
+    g.fillStyle = '#3ddc84'; g.beginPath(); g.moveTo(16, 0); g.lineTo(-11, 9); g.lineTo(-11, -9); g.closePath(); g.fill();
+    g.restore();
+  }
+}
+
+// ---------- state polling
+const f = (v, d = 2) => (v === undefined || v === null || isNaN(v)) ? '—' : (+v).toFixed(d);
+const deg = r => f(r * 180 / Math.PI, 1) + '°';
+
+async function poll() {
+  try {
+    const r = await fetch('/api/state', { cache: 'no-store' });
+    const s = await r.json();
+    $('conn').textContent = '● connected'; $('conn').className = '';
+    const st = s.state; mode = st.mode;
+    const names = { STANDBY: 'STOPPED', MANUAL: 'MANUAL', AUTO: 'AUTO', ESTOP: 'EMERGENCY STOP', NONE: 'NO OPERATOR' };
+    $('state').textContent = names[mode] || mode;
+    $('state').className = mode;
+    $('substate').textContent = st.state || '';
+    $('reason').textContent = st.reason || '';
+
+    const estop = mode === 'ESTOP', none = mode === 'NONE';
+    $('bManual').disabled = estop || none; $('bAuto').disabled = estop || none; $('bStandby').disabled = estop || none;
+    $('bReset').disabled = !estop;
+    document.querySelectorAll('.pad button').forEach(b => b.disabled = mode !== 'MANUAL');
+
+    const cmd = st.cmd || {};
+    $('tSpeed').textContent = f(s.speed) + ' m/s';
+    $('tCmd').textContent = f(cmd.lin) + ' m/s · ' + f(cmd.ang) + ' rad/s';
+    const lane = st.lane || {};
+    $('tLane').innerHTML = lane.valid
+      ? '<span class="pill ok">found ' + (lane.left ? 'L' : '') + (lane.left && lane.right ? '+' : '') + (lane.right ? 'R' : '') + '</span>'
+      : '<span class="pill no">not visible</span>';
+    $('tSrc').textContent = lane.source === 'neural_network' ? 'neural network' : (lane.source ? 'colour threshold' : '—');
+    const sd = s.stanley || [];
+    const tracking = sd[5] > 0.5;
+    $('tE').textContent = tracking ? f(sd[0]) + ' m' : '—';
+    $('tPsi').textContent = tracking ? deg(sd[1]) : '—';
+    $('tDelta').textContent = tracking ? deg(sd[2]) : '—';
+
+    // findings
+    const al = s.alerts || [];
+    $('nfound').textContent = al.length;
+    const key = al.map(a => a.id + ':' + a.crop).join(',');
+    if (al.length && key !== lastKey) {
+      lastKey = key;
+      $('alerts').replaceChildren(...al.slice().reverse().map(a => {
+        const d = document.createElement('div'); d.className = 'alert found';
+        if (a.crop) { const im = document.createElement('img'); im.src = '/crop/' + a.name + '.jpg?v=' + a.crop; d.append(im); }
+        const t = document.createElement('div');
+        const b = document.createElement('b'); b.textContent = 'Found: ' + (NAMES[a.name] || a.name);
+        const sm = document.createElement('small');
+        sm.textContent = a.time + (a.x !== undefined ? '  ·  x=' + a.x.toFixed(2) + ' y=' + a.y.toFixed(2) : '');
+        t.append(b, sm); d.append(t); return d;
+      }));
+    }
+    drawMap(s);
+    if (seen === null) seen = al.length;            // page just opened: do not re-alarm for old findings
+    else if (al.length > seen) { showAlert(al[al.length - 1]); seen = al.length; }
+  } catch (e) {
+    $('conn').textContent = '● connection to the robot lost'; $('conn').className = 'bad';
+    mode = 'NONE';
+  }
+}
+setInterval(poll, 250); poll();
+</script>
+</body>
+</html>

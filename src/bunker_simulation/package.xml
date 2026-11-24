@@ -4,7 +4,7 @@
   <name>bunker_simulation</name>
   <version>0.0.0</version>
   <description>Gazebo Harmonic simulation of the AgileX Bunker Mini 2.0 in a DARPA SubT cave world</description>
-  <maintainer email="panos@todo.todo">panos</maintainer>
+  <maintainer email="madpan01@gmail.com">Panagiotis Mantouvalos</maintainer>
   <license>TODO: License declaration</license>
 
   <buildtool_depend>ament_cmake</buildtool_depend>

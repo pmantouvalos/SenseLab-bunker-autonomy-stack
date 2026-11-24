@@ -14,11 +14,11 @@ from launch_ros.parameter_descriptions import ParameterValue
 
 
 def gpu_env():
-    """Rendering με την GPU της NVIDIA μέσα στο WSL2 (Mesa D3D12) αντί για llvmpipe (CPU).
+    """Rendering on the NVIDIA GPU inside WSL2 (Mesa D3D12) instead of llvmpipe (CPU).
 
-    Χωρίς αυτά το Mesa πέφτει σε software rendering. Απενεργοποίηση: use_gpu:=false.
+    Without these, Mesa falls back to software rendering. Disable with use_gpu:=false.
     """
-    if not os.path.exists('/dev/dxg'):      # όχι WSL2: άφησε το σύστημα όπως είναι
+    if not os.path.exists('/dev/dxg'):      # not WSL2: leave the system as it is
         return []
     ld = os.pathsep.join(filter(None, ['/usr/lib/wsl/lib', os.environ.get('LD_LIBRARY_PATH', '')]))
     return [
@@ -53,25 +53,25 @@ def generate_launch_description():
         DeclareLaunchArgument('yaw', default_value='0.0'),
     ]
 
-    # Ώστε το Gazebo να βρίσκει materials, meshes και worlds του πακέτου
+    # So Gazebo can find the package materials, meshes and worlds
     set_gz_resource_path = SetEnvironmentVariable(
         name='GZ_SIM_RESOURCE_PATH',
         value=os.path.dirname(pkg_bunker_sim),
     )
 
-    # 1. Gazebo με τον κόσμο της σπηλιάς (-r: ξεκινά αμέσως η προσομοίωση)
+    # 1. Gazebo with the cave world (-r: start the simulation immediately)
     gazebo = IncludeLaunchDescription(
         PythonLaunchDescriptionSource(
             os.path.join(pkg_ros_gz_sim, 'launch', 'gz_sim.launch.py')),
         launch_arguments={
-            # '-s' = server only (χωρίς GUI) όταν headless:=true
+            # '-s' = server only (no GUI) when headless:=true
             'gz_args': [f'-r -v 3 {world_file}',
                         PythonExpression(["' -s' if '", headless, "' == 'true' else ''"])],
             'on_exit_shutdown': 'true',
         }.items(),
     )
 
-    # 2. robot_description από το xacro -> robot_state_publisher (TF των links)
+    # 2. robot_description from xacro -> robot_state_publisher (link TFs)
     robot_description = ParameterValue(Command(['xacro ', xacro_file]), value_type=str)
     robot_state_publisher = Node(
         package='robot_state_publisher',
@@ -81,7 +81,7 @@ def generate_launch_description():
         output='screen',
     )
 
-    # 3. Spawn του Bunker Mini μέσα στον κόσμο
+    # 3. Spawn the Bunker Mini in the world
     spawn_robot = Node(
         package='ros_gz_sim',
         executable='create',
@@ -105,7 +105,7 @@ def generate_launch_description():
         output='screen',
     )
 
-    # 4b. Διορθώνει το frame του point cloud της κάμερας (βλ. oak_points_relay.py)
+    # 4b. Fixes the frame of the camera point cloud (see oak_points_relay.py)
     points_relay = Node(
         package='mine_rover_core',
         executable='oak_points_relay',
@@ -113,8 +113,8 @@ def generate_launch_description():
         output='screen',
     )
 
-    # 5. Ο open-loop κώδικας. Ξεκινά αφού γίνει spawn και περάσουν 3 s
-    #    ώστε το ρομπότ να "κάτσει" στο έδαφος της σπηλιάς.
+    # 5. The open-loop code. Starts after the spawn and 3 s
+    #    so the robot can settle on the cave floor.
     state_manager = Node(
         package='mine_rover_core',
         executable='state_manager',

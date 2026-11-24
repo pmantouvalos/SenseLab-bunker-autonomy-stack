@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Generates the painted lane ("διάδρομος") of the demo and writes it into the world.
+Generates the painted lane ("lane") of the demo and writes it into the world.
 
     python3 scripts/generate_lane.py            # print the SDF model
     python3 scripts/generate_lane.py --write    # replace the block between the
