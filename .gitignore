@@ -6,3 +6,11 @@ log/
 *.pyc
 __pycache__/
 .vscode/
+
+# Local editor state
+*:Zone.Identifier
+
+# Large or third-party binaries (download separately)
+/yolov8*.pt
+/*.pdf
+*.dat
